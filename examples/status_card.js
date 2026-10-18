@@ -40,27 +40,46 @@
     }
     return true;
   }
-  function row(name, label, tone, meta) {
-    var r = card.querySelector('[data-component="' + name + '"]');
+  // Per-server rows live inside <div data-server="main|server_2|…">; without one, the whole card is one server.
+  var scopes = [].slice.call(card.querySelectorAll('[data-server]'));
+  if (!scopes.length) scopes = [card];
+  function row(name, label, tone, meta, scope) {
+    var r = (scope || card).querySelector('[data-component="' + name + '"]');
     if (!r) return;
     r.setAttribute('data-tone', tone);
     r.querySelector('.st-state').textContent = label;
     r.querySelector('.st-age').textContent = meta;
   }
-  function players(p, meta) {
-    var r = card.querySelector('[data-component="players"]');
+  function players(p, meta, scope) {
+    var r = (scope || card).querySelector('[data-component="players"]');
     if (!r) return;
     var ok = p && typeof p.current === 'number';
     r.setAttribute('data-tone', ok ? 'ok' : 'unknown');
     r.querySelector('.st-count').textContent = ok ? p.current + (typeof p.max === 'number' ? '/' + p.max : '') : '—';
     r.querySelector('.st-age').textContent = meta;
   }
+  function serverUnknown(meta, scope) {
+    players(null, meta, scope);
+    row('community_server', 'Unknown', 'unknown', meta, scope);
+    row('rcon', 'Stale / unknown', 'unknown', meta, scope);
+  }
   function allUnknown(meta) {
-    players(null, meta);
-    row('community_server', 'Unknown', 'unknown', meta);
+    scopes.forEach(function (sc) { serverUnknown(meta, sc); });
     row('votebot', 'Unknown', 'unknown', meta);
     row('discord', 'Unknown', 'unknown', meta);
-    row('rcon', 'Stale / unknown', 'unknown', meta);
+  }
+  // This server's {community_server, rcon}: from the "servers" list, or the top level for the first server.
+  function serverData(d, scope) {
+    var id = scope === card ? 'main' : scope.getAttribute('data-server');
+    if (Array.isArray(d.servers) && d.servers.length) {
+      for (var i = 0; i < d.servers.length; i++) {
+        var x = d.servers[i];
+        if (x && x.id === id && x.community_server && x.rcon && LABEL.community_server.hasOwnProperty(x.community_server.state)
+            && LABEL.rcon.hasOwnProperty(x.rcon.state)) return x;
+      }
+      return null;
+    }
+    return id === 'main' ? d : null;
   }
   function foot(text, demo) {
     var f = card.querySelector('.st-foot');
@@ -89,15 +108,26 @@
     }
     function fresh(iso, max) { var v = t(iso); return v != null && now() - v <= max && now() - v > -60000; }
 
-    // Community server (shares the RCON check)
-    var s = d.community_server, L = LABEL.community_server[s.state];
-    if (s.state === 'responding' && !fresh(s.observed_at, obsMax)) L = ['Unknown', 'unknown'];
-    var sMeta = s.observed_at ? 'checked ' + age(t(s.observed_at)) :
-      (s.last_success_at ? 'last response ' + age(t(s.last_success_at)) : 'no current check');
-    row('community_server', L[0], L[1], sMeta);
-    // Player count (numbers only), only while the server check is current
-    var pl = s.players && s.state === 'responding' && L[1] === 'ok' && fresh(s.players.observed_at, obsMax) ? s.players : null;
-    players(pl, pl ? 'checked ' + age(t(pl.observed_at)) : 'no current count');
+    scopes.forEach(function (sc) {
+      var x = serverData(d, sc);
+      if (!x) { serverUnknown('no data yet', sc); return; }
+      // Community server (shares the RCON check)
+      var s = x.community_server, L = LABEL.community_server[s.state];
+      if (s.state === 'responding' && !fresh(s.observed_at, obsMax)) L = ['Unknown', 'unknown'];
+      var sMeta = s.observed_at ? 'checked ' + age(t(s.observed_at)) :
+        (s.last_success_at ? 'last response ' + age(t(s.last_success_at)) : 'no current check');
+      row('community_server', L[0], L[1], sMeta, sc);
+      // Player count (numbers only), only while the server check is current
+      var pl = s.players && s.state === 'responding' && L[1] === 'ok' && fresh(s.players.observed_at, obsMax) ? s.players : null;
+      players(pl, pl ? 'checked ' + age(t(pl.observed_at)) : 'no current count', sc);
+      // Game / RCON
+      var r = x.rcon, rl = LABEL.rcon[r.state].slice();
+      if (r.state !== 'unknown' && !fresh(r.last_attempt_at, obsMax)) rl = ['Stale / unknown', 'unknown'];
+      else if ((r.state === 'degraded' || r.state === 'failing') && CAT[r.category]) rl[0] += ' · ' + CAT[r.category];
+      var rm = r.state === 'healthy' && rl[1] === 'ok' ? 'checked ' + age(t(r.last_attempt_at)) :
+        (r.last_success_at ? 'last success ' + age(t(r.last_success_at)) : 'no successful check yet');
+      row('rcon', rl[0], rl[1], rm, sc);
+    });
 
     // Votebot process
     var b = d.votebot, bl = LABEL.votebot[b.state].slice(), bm = 'checked ' + age(t(b.checked_at));
@@ -112,14 +142,6 @@
     if (dc.state !== 'unknown' && !fresh(dc.observed_at, hbMax)) dl = ['Unknown', 'unknown'];
     row('discord', dl[0], dl[1], dc.observed_at ? 'observed ' + age(t(dc.observed_at)) :
       (dc.last_connected_at ? 'last connected ' + age(t(dc.last_connected_at)) : 'no current observation'));
-
-    // Game / RCON
-    var r = d.rcon, rl = LABEL.rcon[r.state].slice();
-    if (r.state !== 'unknown' && !fresh(r.last_attempt_at, obsMax)) rl = ['Stale / unknown', 'unknown'];
-    else if ((r.state === 'degraded' || r.state === 'failing') && CAT[r.category]) rl[0] += ' · ' + CAT[r.category];
-    var rm = r.state === 'healthy' && rl[1] === 'ok' ? 'checked ' + age(t(r.last_attempt_at)) :
-      (r.last_success_at ? 'last success ' + age(t(r.last_success_at)) : 'no successful check yet');
-    row('rcon', rl[0], rl[1], rm);
 
     foot(demoNote + (failed ? "Couldn't refresh. Last update " : 'Updated ') + age(gen) + '.', demo);
   }

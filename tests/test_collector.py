@@ -1,6 +1,6 @@
 """Scenario tests for the collector. Uses fixtures/mocks only: never touches a real
 bot, systemd unit, Discord or game server.   Run:  python3 -m pytest -q tests"""
-import json, os, pathlib, stat, subprocess, sys, time
+import json, os, pathlib, stat, sys, time
 
 import pytest
 
@@ -272,3 +272,65 @@ def test_players_implausible_values():
     assert p["current"] == 50 and p["max"] is None
     p = d(unit(), with_players(snap(), mx=None))["community_server"]["players"]
     assert p["current"] == 12 and p["max"] is None
+
+
+# ---------------------------------------------------------------- several game servers (vote bot 0.2+)
+def two_servers(second_result="ok", second_age=12):
+    s = snap()
+    s["players"] = {"current": 7, "max": 100, "observed_at": NOW - 12}
+    s["servers"] = [
+        {"id": "main", "name": "Community | Server One | discord.gg/abc", "rcon": dict(s["rcon"]), "players": s["players"]},
+        {"id": "server_2", "name": "Community | Server Two | SecretPlayer",
+         "rcon": {"last_attempt_at": NOW - second_age, "last_result": second_result,
+                  "last_success_at": NOW - 300, "consecutive_failures": 0 if second_result == "ok" else 4},
+         "players": {"current": 3, "max": 64, "observed_at": NOW - second_age}},
+    ]
+    return s
+
+
+def read_back(tmp_path, s):
+    p = tmp_path / "health.json"
+    p.write_text(json.dumps(s))
+    return c.read_snapshot(str(p))
+
+
+def test_each_server_is_published_by_id(tmp_path):
+    s, reason = read_back(tmp_path, two_servers())
+    o = d(unit(), s, reason)
+    assert [x["id"] for x in o["servers"]] == ["main", "server_2"]
+    west, mid = o["servers"]
+    assert west["community_server"] == o["community_server"] and west["rcon"] == o["rcon"]   # first = top level
+    assert mid["community_server"]["state"] == "responding" and mid["community_server"]["players"]["current"] == 3
+    assert mid["rcon"]["state"] == "healthy"
+    text = json.dumps(o)
+    assert "Server Two" not in text and "discord.gg" not in text and "SecretPlayer" not in text   # names never published
+
+
+def test_one_server_failing_does_not_affect_the_other(tmp_path):
+    s, reason = read_back(tmp_path, two_servers(second_result="timeout"))
+    o = d(unit(), s, reason)
+    west, mid = o["servers"]
+    assert west["rcon"]["state"] == "healthy" and o["rcon"]["state"] == "healthy"
+    assert (mid["rcon"]["state"], mid["rcon"]["category"], mid["community_server"]["state"]) == ("failing", "timeout", "unreachable")
+    assert mid["community_server"]["players"] is None
+
+
+def test_servers_unknown_when_bot_health_unconfirmed(tmp_path):
+    s, reason = read_back(tmp_path, two_servers())
+    o = d(unit(active="inactive", sub="dead"), s, reason)
+    assert all(x["community_server"]["state"] == "unknown" and x["rcon"]["state"] == "unknown" for x in o["servers"])
+
+
+def test_bad_server_entries_are_dropped_not_fatal(tmp_path):
+    s = two_servers()
+    s["servers"] += [{"id": "Bad Id!", "rcon": {}}, {"id": "x3", "rcon": "nope"},
+                     {"id": "x4", "rcon": {"last_result": "something_new"}}, {"id": "main", "rcon": {}}, "junk"]
+    s2, reason = read_back(tmp_path, s)
+    assert reason == "ok" and [x["id"] for x in s2["servers"]] == ["main", "server_2"]
+    s["servers"] = "not a list"
+    s3, reason = read_back(tmp_path, s)
+    assert reason == "ok" and s3["servers"] == [] and "servers" not in d(unit(), s3, reason)
+
+
+def test_single_server_snapshot_has_no_servers_list():
+    assert "servers" not in d(unit(), snap())

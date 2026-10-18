@@ -19,6 +19,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -31,6 +32,8 @@ MAX_SNAPSHOT_BYTES = 16384
 
 RCON_CATEGORIES = {"timeout", "unreachable", "auth", "rate_limited", "api_error",
                    "invalid_response", "internal_error"}
+SERVER_ID = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+MAX_SERVERS = 10
 DISCORD_STATES = {"starting", "connecting", "connected", "reconnecting", "closed"}
 
 
@@ -156,6 +159,20 @@ def read_snapshot(path) -> tuple[dict | None, str]:
     lr = r.get("last_result")
     if lr is not None and lr != "ok" and lr not in RCON_CATEGORIES:
         return None, "malformed"
+    # Several game servers (vote bot 0.2+): keep well-formed entries, drop anything else.
+    servers, raw = [], s.get("servers")
+    for x in raw if isinstance(raw, list) else []:
+        if not isinstance(x, dict) or not isinstance(x.get("id"), str) or not SERVER_ID.match(x["id"]):
+            continue
+        xr = x.get("rcon")
+        if not isinstance(xr, dict):
+            continue
+        xl = xr.get("last_result")
+        if xl is not None and xl != "ok" and xl not in RCON_CATEGORIES:
+            continue
+        if x["id"] not in {y["id"] for y in servers} and len(servers) < MAX_SERVERS:
+            servers.append({"id": x["id"], "rcon": xr, "players": x.get("players")})
+    s["servers"] = servers
     return s, "ok"
 
 
@@ -172,6 +189,44 @@ def players_from(p, now: float, expiry: int):
     if not ok_int(mx) or mx == 0 or cur > mx:
         mx = None
     return {"current": cur, "max": mx, "observed_at": iso(at)}
+
+
+def server_states(cfg, rs: dict | None, players, app: str, app_reason, now: float) -> tuple[dict, dict]:
+    """(community_server, rcon) for one game server from its RCON poll results."""
+    r = {"state": "unknown", "category": None, "source": "rcon_status_poll", "last_attempt_at": None,
+         "last_success_at": None, "consecutive_failures": None, "detail": None}
+    srv = {"state": "unknown", "source": "rcon", "source_label": "Via RCON", "observed_at": None,
+           "last_success_at": None, "shares_evidence_with": "rcon", "detail": None, "players": None}
+    if rs is not None:
+        # historical only unless the evidence is current and from the running instance
+        last_ok = num(rs.get("last_success_at"))
+        r["last_success_at"] = srv["last_success_at"] = iso(last_ok)
+    if app == "confirmed" and rs is not None:
+        attempt = num(rs.get("last_attempt_at"))
+        result = rs.get("last_result")
+        fails = rs.get("consecutive_failures") if isinstance(rs.get("consecutive_failures"), int) else None
+        r["last_attempt_at"] = iso(attempt)
+        r["consecutive_failures"] = fails
+        if attempt is None or result is None:
+            r["detail"] = srv["detail"] = "no_attempt_yet"
+        elif now - attempt > cfg.observation_expiry:
+            r["detail"] = srv["detail"] = "observation_stale"
+        elif result == "ok":
+            r["state"] = "healthy"
+            srv["state"], srv["observed_at"] = "responding", iso(num(rs.get("last_success_at")) or attempt)
+            srv["players"] = players_from(players, now, cfg.observation_expiry)
+        else:
+            # A failure that was observed is shown at once - no waiting for expiry.
+            r["category"] = result
+            r["state"] = "failing" if (fails or 1) >= cfg.failing_after else "degraded"
+            srv["observed_at"] = iso(attempt)
+            if result in ("timeout", "unreachable"):
+                srv["state"] = "unreachable"   # current failed check; NOT proof the server is down
+            else:
+                srv["detail"] = "rcon_" + result   # API answered but check not validated
+    else:
+        r["detail"] = srv["detail"] = app_reason
+    return srv, r
 
 
 # --------------------------------------------------------------------------- derive
@@ -232,43 +287,17 @@ def derive(cfg, unit: dict, snap: dict | None, snap_reason: str, now: float) -> 
         d["detail"] = app_reason
     out["discord"] = d
 
-    # ---- rcon (+ community server, which shares the same evidence)
-    r = {"state": "unknown", "category": None, "source": "rcon_status_poll", "last_attempt_at": None,
-         "last_success_at": None, "consecutive_failures": None, "detail": None}
-    srv = {"state": "unknown", "source": "rcon", "source_label": "Via RCON", "observed_at": None,
-           "last_success_at": None, "shares_evidence_with": "rcon", "detail": None, "players": None}
-    if snap is not None:
-        # historical only unless the evidence is current and from the running instance
-        last_ok = num(snap["rcon"].get("last_success_at"))
-        r["last_success_at"] = srv["last_success_at"] = iso(last_ok)
-    if app == "confirmed":
-        rs = snap["rcon"]
-        attempt = num(rs.get("last_attempt_at"))
-        result = rs.get("last_result")
-        fails = rs.get("consecutive_failures") if isinstance(rs.get("consecutive_failures"), int) else None
-        r["last_attempt_at"] = iso(attempt)
-        r["consecutive_failures"] = fails
-        if attempt is None or result is None:
-            r["detail"] = srv["detail"] = "no_attempt_yet"
-        elif now - attempt > cfg.observation_expiry:
-            r["detail"] = srv["detail"] = "observation_stale"
-        elif result == "ok":
-            r["state"] = "healthy"
-            srv["state"], srv["observed_at"] = "responding", iso(num(rs.get("last_success_at")) or attempt)
-            srv["players"] = players_from(snap.get("players"), now, cfg.observation_expiry)
-        else:
-            # A failure that was observed is shown at once - no waiting for expiry.
-            r["category"] = result
-            r["state"] = "failing" if (fails or 1) >= cfg.failing_after else "degraded"
-            srv["observed_at"] = iso(attempt)
-            if result in ("timeout", "unreachable"):
-                srv["state"] = "unreachable"   # current failed check; NOT proof the server is down
-            else:
-                srv["detail"] = "rcon_" + result   # API answered but check not validated
-    else:
-        r["detail"] = srv["detail"] = app_reason
+    # ---- rcon (+ community server, which shares the same evidence), first server at the top level
+    srv, r = server_states(cfg, snap.get("rcon") if snap else None, snap.get("players") if snap else None,
+                           app, app_reason, now)
     out["rcon"] = r
     out["community_server"] = srv
+    # ---- every server, when the bot serves more than one (the first one repeats the top level)
+    if snap is not None and snap.get("servers"):
+        out["servers"] = []
+        for x in snap["servers"]:
+            xs, xr = server_states(cfg, x["rcon"], x.get("players"), app, app_reason, now)
+            out["servers"].append({"id": x["id"], "community_server": xs, "rcon": xr})
     # Confirmed offline would require an authoritative signal; none exists, so never emitted.
 
     # ---- overall monitoring state

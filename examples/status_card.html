@@ -19,6 +19,8 @@ body{margin:0;padding:32px;background:var(--bg);color:var(--text);font:16px/1.5 
 .status-card dd{margin:0;display:flex;align-items:center;gap:8px;justify-self:end;font:600 .82rem/1.3 var(--font-mono);letter-spacing:.06em;color:var(--text)}
 .status-card dd.st-meta{grid-column:1/-1;justify-self:start;font:400 .74rem/1.3 var(--font-mono);letter-spacing:.04em;color:var(--muted)}
 .status-card .st-sub{margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--line-strong);font:500 .7rem/1 var(--font-mono);letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.status-card h3+.st-server>.st-sub{margin-top:4px;padding-top:0;border-top:0}
+.status-card .st-server>.st-sub{color:var(--text)}
 .status-card .st-dot{width:8px;height:8px;border-radius:1px;background:var(--dim);flex:none}
 .status-card [data-tone="ok"] .st-dot{background:#7fa58a}
 .status-card [data-tone="warn"] .st-dot{background:#b9a77a}
@@ -36,6 +38,10 @@ body{margin:0;padding:32px;background:var(--bg);color:var(--text);font:16px/1.5 
      The sample file here is old on purpose, so the card shows how it handles stale data. -->
 <div class="panel status-card" id="community-status" data-status-url="sample_status.json">
   <h3>Community status</h3>
+  <!-- Several game servers: wrap the community_server, players and rcon rows of each server in
+       <div class="st-server" data-server="SERVER_ID"><p class="st-sub">Server name</p><dl class="st-list">…</dl></div>
+       (SERVER_ID = main, server_2, … from status.json "servers"), then list votebot and discord once.
+       Without data-server blocks, the whole card shows the first server, as below. -->
   <dl class="st-list">
     <div class="st-row" data-component="community_server">
       <dt>Community server</dt>

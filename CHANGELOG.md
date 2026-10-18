@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 (2026-10-18)
+
+- Several game servers: when the vote bot reports more than one, `status.json` gets a `servers` list with
+  the community server, players and RCON state for each, by server id only. Top-level fields are unchanged.
+- The example card shows one section per server when its markup lists them (`data-server="server_2"`).
+
 ## 1.0.0 (2026-10-18)
 
 - First public version of the collector that has run in production since October 2026.

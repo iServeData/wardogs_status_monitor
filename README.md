@@ -36,7 +36,11 @@ Four separate signals, each with its own observation time ([schema](docs/status.
 | Discord | the bot's gateway events | connected, reconnecting, disconnected, unknown |
 | Game / RCON | the bot's RCON results | healthy, degraded, failing, unknown |
 
-No player names, SteamIDs, Discord IDs, IP addresses, file paths or error text are published.
+With several game servers (vote bot 0.2+), a `servers` list repeats the community server, players and
+RCON rows for each one, identified only by the bot's server id (`main`, `server_2`, …). Your page supplies
+the names. The first entry is the same as the top-level rows, so single-server cards keep working.
+
+No player names, server names, SteamIDs, Discord IDs, IP addresses, file paths or error text are published.
 
 ## Requirements
 
