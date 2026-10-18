@@ -1,0 +1,12 @@
+# /etc/systemd/system/wardogs-status.timer
+[Unit]
+Description=Run the WARDOGS status collector every 30 seconds
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=30s
+AccuracySec=2s
+# A oneshot unit that is still running is never started twice, so runs cannot overlap.
+
+[Install]
+WantedBy=timers.target

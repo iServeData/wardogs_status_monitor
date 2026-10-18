@@ -1,0 +1,51 @@
+{
+  "collector": {
+    "interval_seconds": 30
+  },
+  "community_server": {
+    "detail": null,
+    "last_success_at": "2026-10-08T22:50:00Z",
+    "observed_at": "2026-10-08T22:53:12Z",
+    "players": null,
+    "shares_evidence_with": "rcon",
+    "source": "rcon",
+    "source_label": "Via RCON",
+    "state": "unreachable"
+  },
+  "demo": true,
+  "discord": {
+    "detail": null,
+    "last_connected_at": "2026-10-08T22:03:20Z",
+    "observed_at": "2026-10-08T22:53:10Z",
+    "source": "discord_gateway_events",
+    "state": "connected"
+  },
+  "expiry": {
+    "heartbeat_seconds": 180,
+    "observation_seconds": 180,
+    "public_json_seconds": 120
+  },
+  "generated_at": "2026-10-08T22:53:20Z",
+  "monitoring": {
+    "snapshot": "ok",
+    "state": "ok"
+  },
+  "rcon": {
+    "category": "timeout",
+    "consecutive_failures": 7,
+    "detail": null,
+    "last_attempt_at": "2026-10-08T22:53:12Z",
+    "last_success_at": "2026-10-08T22:50:00Z",
+    "source": "rcon_status_poll",
+    "state": "failing"
+  },
+  "schema_version": 1,
+  "votebot": {
+    "application_health": "confirmed",
+    "application_reason": null,
+    "checked_at": "2026-10-08T22:53:20Z",
+    "detail": null,
+    "source": "systemd",
+    "state": "running"
+  }
+}

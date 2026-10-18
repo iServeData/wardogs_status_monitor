@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WARDOGS public status (schema 1) - /wardogs/data/status.json",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "demo", "expiry", "monitoring", "community_server", "votebot", "discord", "rcon"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "generated_at": {"type": "string", "format": "date-time", "description": "UTC, when the collector ran. Never makes an older observation fresh."},
+    "demo": {"type": "boolean", "description": "true only in test fixtures; the page shows DEMO DATA"},
+    "expiry": {"type": "object", "properties": {
+      "public_json_seconds": {"type": "integer"}, "heartbeat_seconds": {"type": "integer"}, "observation_seconds": {"type": "integer"}}},
+    "collector": {"type": "object", "properties": {"interval_seconds": {"type": "integer"}}},
+    "monitoring": {"type": "object", "properties": {
+      "state": {"enum": ["ok", "degraded", "unknown"]},
+      "snapshot": {"enum": ["ok", "missing", "unreadable", "malformed", "schema"]}}},
+    "community_server": {"type": "object", "properties": {
+      "state": {"enum": ["responding", "unreachable", "unknown", "offline"], "description": "offline = authoritative signal only; the collector never emits it"},
+      "source": {"const": "rcon"}, "source_label": {"const": "Via RCON"}, "shares_evidence_with": {"const": "rcon"},
+      "observed_at": {"type": ["string", "null"]}, "last_success_at": {"type": ["string", "null"]}, "detail": {"type": ["string", "null"]},
+      "players": {"type": ["object", "null"], "description": "Only while responding and current. Numbers only.", "properties": {
+        "current": {"type": "integer", "minimum": 0}, "max": {"type": ["integer", "null"], "minimum": 1}, "observed_at": {"type": "string"}}}}},
+    "votebot": {"type": "object", "properties": {
+      "state": {"enum": ["running", "stopped", "unknown"]},
+      "detail": {"enum": [null, "starting", "failed", "restarting", "stopping", "query_failed", "unit_not_found", "exited"]},
+      "source": {"const": "systemd"}, "checked_at": {"type": "string"},
+      "application_health": {"enum": ["confirmed", "unconfirmed", "unknown"]},
+      "application_reason": {"type": ["string", "null"]}}},
+    "discord": {"type": "object", "properties": {
+      "state": {"enum": ["connected", "reconnecting", "disconnected", "unknown"]},
+      "source": {"const": "discord_gateway_events"},
+      "observed_at": {"type": ["string", "null"]}, "last_connected_at": {"type": ["string", "null"]}, "detail": {"type": ["string", "null"]}}},
+    "rcon": {"type": "object", "properties": {
+      "state": {"enum": ["healthy", "degraded", "failing", "unknown"]},
+      "category": {"enum": [null, "timeout", "unreachable", "auth", "rate_limited", "api_error", "invalid_response", "internal_error"]},
+      "source": {"const": "rcon_status_poll"},
+      "last_attempt_at": {"type": ["string", "null"]}, "last_success_at": {"type": ["string", "null"]},
+      "consecutive_failures": {"type": ["integer", "null"]}, "detail": {"type": ["string", "null"]}}}
+  }
+}

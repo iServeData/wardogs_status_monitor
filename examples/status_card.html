@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Status card example</title>
+<style>
+/* Minimal page styles; the .status-card rules are the part to copy. */
+:root{--bg:#121417;--panel:#1a1d21;--text:#e8e6e1;--muted:#9a9890;--dim:#55534d;--line:#2a2d32;--line-strong:#3a3d43;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--font-head:system-ui,sans-serif}
+body{margin:0;padding:32px;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,sans-serif}
+.panel{max-width:340px;padding:20px;background:var(--panel);border:1px solid var(--line);border-radius:6px}
+.panel h3{margin:0 0 12px;font:600 .9rem/1.2 var(--font-mono);letter-spacing:.16em;text-transform:uppercase}
+.note{color:var(--muted)}
+.status-card .st-list{margin:0;padding:0}
+.status-card .st-row{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:9px 0;border-top:1px solid var(--line)}
+.status-card .st-row:first-child{border-top:0;padding-top:2px}
+.status-card dt{font:500 .74rem/1.3 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.status-card dd{margin:0;display:flex;align-items:center;gap:8px;justify-self:end;font:600 .82rem/1.3 var(--font-mono);letter-spacing:.06em;color:var(--text)}
+.status-card dd.st-meta{grid-column:1/-1;justify-self:start;font:400 .74rem/1.3 var(--font-mono);letter-spacing:.04em;color:var(--muted)}
+.status-card .st-sub{margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--line-strong);font:500 .7rem/1 var(--font-mono);letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.status-card .st-dot{width:8px;height:8px;border-radius:1px;background:var(--dim);flex:none}
+.status-card [data-tone="ok"] .st-dot{background:#7fa58a}
+.status-card [data-tone="warn"] .st-dot{background:#b9a77a}
+.status-card [data-tone="bad"] .st-dot{background:#b97a7a}
+.status-card [data-tone="unknown"] .st-state{color:var(--muted)}
+.status-card .st-foot{margin:12px 0 0;font-size:.82rem}
+.status-card .st-explain{margin:6px 0 0;font-size:.8rem;color:var(--muted)}
+.status-card .st-demo{display:inline-block;margin-left:8px;padding:2px 6px;border:1px solid var(--line-strong);font:600 .66rem/1.2 var(--font-mono);letter-spacing:.16em;color:var(--text)}
+.status-card .st-players .st-count{font:600 .82rem/1.3 var(--font-mono);letter-spacing:.06em;color:var(--text);white-space:nowrap}
+.status-card .st-players[data-tone="unknown"] .st-count{color:var(--muted)}
+</style>
+</head>
+<body>
+<!-- Point data-status-url at the status.json your server publishes, e.g. /wardogs/data/status.json.
+     The sample file here is old on purpose, so the card shows how it handles stale data. -->
+<div class="panel status-card" id="community-status" data-status-url="sample_status.json">
+  <h3>Community status</h3>
+  <dl class="st-list">
+    <div class="st-row" data-component="community_server">
+      <dt>Community server</dt>
+      <dd><span class="st-dot" aria-hidden="true"></span><span class="st-state">Unknown</span></dd>
+      <dd class="st-meta">Via RCON · <span class="st-age">checking…</span></dd>
+    </div>
+    <div class="st-row st-players" data-component="players" data-tone="unknown">
+      <dt>Players on server</dt>
+      <dd><span class="st-count">—</span></dd>
+      <dd class="st-meta"><span class="st-age">checking…</span></dd>
+    </div>
+    <div class="st-row" data-component="votebot">
+      <dt>Votebot</dt>
+      <dd><span class="st-dot" aria-hidden="true"></span><span class="st-state">Unknown</span></dd>
+      <dd class="st-meta">Process check · <span class="st-age">checking…</span></dd>
+    </div>
+  </dl>
+  <p class="st-sub">Comms</p>
+  <dl class="st-list">
+    <div class="st-row" data-component="discord">
+      <dt>Discord</dt>
+      <dd><span class="st-dot" aria-hidden="true"></span><span class="st-state">Unknown</span></dd>
+      <dd class="st-meta"><span class="st-age">checking…</span></dd>
+    </div>
+    <div class="st-row" data-component="rcon">
+      <dt>Game / RCON</dt>
+      <dd><span class="st-dot" aria-hidden="true"></span><span class="st-state">Unknown</span></dd>
+      <dd class="st-meta"><span class="st-age">checking…</span></dd>
+    </div>
+  </dl>
+  <p class="note st-foot" role="status" aria-live="polite">Checking monitoring…</p>
+  <p class="note st-explain">The server and RCON rows come from the same RCON check. "Unreachable" means the last check failed, not that the server is down.</p>
+  <noscript><p class="note">Live status needs JavaScript.</p></noscript>
+</div>
+<script src="status_card.js" defer></script>
+</body>
+</html>

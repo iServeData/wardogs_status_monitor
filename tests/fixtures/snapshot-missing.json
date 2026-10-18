@@ -1,0 +1,51 @@
+{
+  "collector": {
+    "interval_seconds": 30
+  },
+  "community_server": {
+    "detail": "snapshot_missing",
+    "last_success_at": null,
+    "observed_at": null,
+    "players": null,
+    "shares_evidence_with": "rcon",
+    "source": "rcon",
+    "source_label": "Via RCON",
+    "state": "unknown"
+  },
+  "demo": true,
+  "discord": {
+    "detail": "snapshot_missing",
+    "last_connected_at": null,
+    "observed_at": null,
+    "source": "discord_gateway_events",
+    "state": "unknown"
+  },
+  "expiry": {
+    "heartbeat_seconds": 180,
+    "observation_seconds": 180,
+    "public_json_seconds": 120
+  },
+  "generated_at": "2026-10-08T22:53:20Z",
+  "monitoring": {
+    "snapshot": "missing",
+    "state": "degraded"
+  },
+  "rcon": {
+    "category": null,
+    "consecutive_failures": null,
+    "detail": "snapshot_missing",
+    "last_attempt_at": null,
+    "last_success_at": null,
+    "source": "rcon_status_poll",
+    "state": "unknown"
+  },
+  "schema_version": 1,
+  "votebot": {
+    "application_health": "unconfirmed",
+    "application_reason": "snapshot_missing",
+    "checked_at": "2026-10-08T22:53:20Z",
+    "detail": null,
+    "source": "systemd",
+    "state": "running"
+  }
+}

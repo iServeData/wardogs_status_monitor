@@ -1,0 +1,60 @@
+# /etc/systemd/system/wardogs-status.service
+# Publishes status.json for a website. Read-only observer:
+# never restarts the bot, never contacts Discord or the game server, holds no credentials.
+[Unit]
+Description=WARDOGS community status collector (publishes website status JSON)
+After=wardogs-votebot.service
+
+[Service]
+Type=oneshot
+User=wdstatus
+Group=wdstatus
+SupplementaryGroups=wdhealth
+ExecStart=/usr/bin/python3 -E -s -B /usr/local/lib/wardogs-status/wardogs_status_collector.py
+TimeoutStartSec=20
+UMask=0022
+RuntimeDirectory=wardogs-status
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+
+Environment=WDS_UNIT=wardogs-votebot.service
+Environment=WDS_SNAPSHOT=/run/wardogs-health/health.json
+Environment=WDS_LOCK=/run/wardogs-status/collector.lock
+Environment=WDS_INTERVAL_SECONDS=30
+Environment=WDS_HEARTBEAT_EXPIRY_SECONDS=180
+Environment=WDS_OBSERVATION_EXPIRY_SECONDS=180
+Environment=WDS_PUBLIC_EXPIRY_SECONDS=120
+Environment=WDS_RCON_FAILING_AFTER=3
+
+# ---- sandboxing: the only writable path is the public status-data directory ----
+NoNewPrivileges=yes
+ProtectSystem=strict
+# The public folder (WDS_OUTPUT + ReadWritePaths) is set by deploy/install.sh in
+# /etc/systemd/system/wardogs-status.service.d/output.conf
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+PrivateIPC=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+# AF_UNIX only: talks to systemd over the local D-Bus socket, nothing else
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+MemoryMax=64M
+TasksMax=16
+CPUQuota=20%
