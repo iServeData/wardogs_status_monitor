@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0 (unreleased)
+## 1.2.0 (2026-10-23)
 
 - Optional server names: with `WDS_PUBLISH_SERVER_NAMES=1`, `community_server.name` (top level and per server)
   is the name the game server reports for itself, from vote bot 0.2.5+. Off by default; cleaned and at most
