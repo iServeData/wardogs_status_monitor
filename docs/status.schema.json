@@ -130,6 +130,14 @@
               "type": "string"
             }
           }
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100,
+          "description": "Only with WDS_PUBLISH_SERVER_NAMES=1: the name the game server last reported for itself (what the in-game server browser shows), cleaned. Present even while the bot is down; null when unknown."
         }
       }
     },
@@ -265,7 +273,7 @@
     "servers": {
       "type": "array",
       "maxItems": 10,
-      "description": "Only when the vote bot serves more than one game server. One entry per server, first = the top-level community_server/rcon. Ids only; the website supplies display names.",
+      "description": "Only when the vote bot serves more than one game server. One entry per server, first = the top-level community_server/rcon. By id; the bot's own labels are never published. With WDS_PUBLISH_SERVER_NAMES=1 each community_server also has the game server's self-reported name.",
       "items": {
         "type": "object",
         "required": [

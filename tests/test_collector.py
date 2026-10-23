@@ -334,3 +334,42 @@ def test_bad_server_entries_are_dropped_not_fatal(tmp_path):
 
 def test_single_server_snapshot_has_no_servers_list():
     assert "servers" not in d(unit(), snap())
+
+
+# ---------------------------------------------------------------- server names (vote bot 0.2.5+, opt-in)
+def named(s):
+    s["server_name"] = "Community | Server One | discord.gg/abc"
+    s["servers"][0]["server_name"] = "Community | Server One | discord.gg/abc"
+    s["servers"][1]["server_name"] = "  Community\u200b | Server\nTwo\x07 "
+    return s
+
+
+def test_server_names_are_not_published_unless_switched_on(tmp_path):
+    s, reason = read_back(tmp_path, named(two_servers()))
+    o = d(unit(), s, reason)
+    assert "name" not in o["community_server"] and all("name" not in x["community_server"] for x in o["servers"])
+    assert "Server One" not in json.dumps(o)
+
+
+def test_server_names_published_when_switched_on(tmp_path):
+    s, reason = read_back(tmp_path, named(two_servers()))
+    o = d(unit(), s, reason, publish_server_names=True)
+    assert o["community_server"]["name"] == "Community | Server One | discord.gg/abc"
+    assert [x["community_server"]["name"] for x in o["servers"]] == \
+        ["Community | Server One | discord.gg/abc", "Community | Server Two"]
+    assert "SecretPlayer" not in json.dumps(o)          # the bot's own labels are still never published
+
+
+def test_server_name_kept_while_bot_is_down_and_absent_from_old_snapshots(tmp_path):
+    s, reason = read_back(tmp_path, named(two_servers()))
+    o = d(unit(active="inactive", sub="dead"), s, reason, publish_server_names=True)
+    assert o["servers"][1]["community_server"]["state"] == "unknown"
+    assert o["servers"][1]["community_server"]["name"] == "Community | Server Two"
+    o = d(unit(), snap(), publish_server_names=True)              # vote bot before 0.2.5
+    assert o["community_server"]["name"] is None
+    assert d(unit(), None, "missing", publish_server_names=True)["community_server"]["name"] is None
+
+
+def test_server_name_cleaning():
+    assert c.server_name("x" * 150) == "x" * 100
+    assert c.server_name(None) is None and c.server_name(5) is None and c.server_name("\n\t ") is None

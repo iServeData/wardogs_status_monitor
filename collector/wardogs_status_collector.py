@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 from datetime import datetime, timezone
 
 SCHEMA_VERSION = 1
@@ -61,12 +62,26 @@ class Cfg:
         self.failing_after = env_int("WDS_RCON_FAILING_AFTER", 3, 1, 50)
         self.systemctl_timeout = env_int("WDS_SYSTEMCTL_TIMEOUT_SECONDS", 5, 1, 15)
         self.systemctl = env("WDS_SYSTEMCTL", "systemctl")
+        # Publish the name each game server reports for itself (what the in-game server browser shows).
+        # Off by default; the bot's own labels for its servers are never published either way.
+        self.publish_server_names = env("WDS_PUBLISH_SERVER_NAMES", "0").strip().lower() in ("1", "yes", "true", "on")
 
 
 def iso(ts):
     if ts is None:
         return None
     return datetime.fromtimestamp(float(ts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def server_name(v):
+    """A game server's self-reported name, safe to publish: text, no control or invisible characters,
+    whitespace collapsed, 1-100 characters. Anything else -> None."""
+    if not isinstance(v, str):
+        return None
+    v = "".join(" " if unicodedata.category(ch) == "Cc" else ch for ch in v
+                if not unicodedata.category(ch).startswith("C") or unicodedata.category(ch) == "Cc")
+    v = " ".join(v.split())
+    return v[:100].strip() or None
 
 
 def num(v):
@@ -171,7 +186,8 @@ def read_snapshot(path) -> tuple[dict | None, str]:
         if xl is not None and xl != "ok" and xl not in RCON_CATEGORIES:
             continue
         if x["id"] not in {y["id"] for y in servers} and len(servers) < MAX_SERVERS:
-            servers.append({"id": x["id"], "rcon": xr, "players": x.get("players")})
+            servers.append({"id": x["id"], "rcon": xr, "players": x.get("players"),
+                            "server_name": x.get("server_name")})
     s["servers"] = servers
     return s, "ok"
 
@@ -191,12 +207,16 @@ def players_from(p, now: float, expiry: int):
     return {"current": cur, "max": mx, "observed_at": iso(at)}
 
 
-def server_states(cfg, rs: dict | None, players, app: str, app_reason, now: float) -> tuple[dict, dict]:
+def server_states(cfg, rs: dict | None, players, app: str, app_reason, now: float,
+                  name=None) -> tuple[dict, dict]:
     """(community_server, rcon) for one game server from its RCON poll results."""
     r = {"state": "unknown", "category": None, "source": "rcon_status_poll", "last_attempt_at": None,
          "last_success_at": None, "consecutive_failures": None, "detail": None}
     srv = {"state": "unknown", "source": "rcon", "source_label": "Via RCON", "observed_at": None,
            "last_success_at": None, "shares_evidence_with": "rcon", "detail": None, "players": None}
+    if cfg.publish_server_names:
+        # The last name the server reported. A name, not a state: it stays while the bot is down.
+        srv["name"] = server_name(name)
     if rs is not None:
         # historical only unless the evidence is current and from the running instance
         last_ok = num(rs.get("last_success_at"))
@@ -289,14 +309,14 @@ def derive(cfg, unit: dict, snap: dict | None, snap_reason: str, now: float) -> 
 
     # ---- rcon (+ community server, which shares the same evidence), first server at the top level
     srv, r = server_states(cfg, snap.get("rcon") if snap else None, snap.get("players") if snap else None,
-                           app, app_reason, now)
+                           app, app_reason, now, snap.get("server_name") if snap else None)
     out["rcon"] = r
     out["community_server"] = srv
     # ---- every server, when the bot serves more than one (the first one repeats the top level)
     if snap is not None and snap.get("servers"):
         out["servers"] = []
         for x in snap["servers"]:
-            xs, xr = server_states(cfg, x["rcon"], x.get("players"), app, app_reason, now)
+            xs, xr = server_states(cfg, x["rcon"], x.get("players"), app, app_reason, now, x.get("server_name"))
             out["servers"].append({"id": x["id"], "community_server": xs, "rcon": xr})
     # Confirmed offline would require an authoritative signal; none exists, so never emitted.
 

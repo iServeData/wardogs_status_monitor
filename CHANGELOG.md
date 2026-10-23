@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0 (unreleased)
+
+- Optional server names: with `WDS_PUBLISH_SERVER_NAMES=1`, `community_server.name` (top level and per server)
+  is the name the game server reports for itself, from vote bot 0.2.5+. Off by default; cleaned and at most
+  100 characters; kept while the bot is down. The bot's own labels are still never published.
+
 ## 1.1.0 (2026-10-18)
 
 - Several game servers: when the vote bot reports more than one, `status.json` gets a `servers` list with

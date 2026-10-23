@@ -36,6 +36,13 @@ Four separate signals, each with its own observation time ([schema](docs/status.
 | Discord | the bot's gateway events | connected, reconnecting, disconnected, unknown |
 | Game / RCON | the bot's RCON results | healthy, degraded, failing, unknown |
 
+Server names are off by default. With `WDS_PUBLISH_SERVER_NAMES=1` (a systemd drop-in, for example
+`/etc/systemd/system/wardogs-status.service.d/server_names.conf` with `[Service]` and
+`Environment=WDS_PUBLISH_SERVER_NAMES=1`), each `community_server` gets `name`: the name the game server last
+reported for itself, the same text players see in the in-game server browser. It's cleaned (no control or
+invisible characters, at most 100 characters), it stays while the bot is down, and it's `null` until a vote bot
+0.2.5 or newer has reported it. The bot's own labels for its servers are never published.
+
 With several game servers (vote bot 0.2+), a `servers` list repeats the community server, players and
 RCON rows for each one, identified only by the bot's server id (`main`, `server_2`, …). Your page supplies
 the names. The first entry is the same as the top-level rows, so single-server cards keep working.
@@ -111,6 +118,7 @@ Defaults are in `systemd/wardogs-status.service`. Override them in a drop-in
 | `WDS_OBSERVATION_EXPIRY_SECONDS` | `180` | RCON or Discord observation older than this: unknown |
 | `WDS_PUBLIC_EXPIRY_SECONDS` | `120` | The card treats the whole file as stale after this |
 | `WDS_RCON_FAILING_AFTER` | `3` | Consecutive failed polls before "failing" (1–2 is "degraded") |
+| `WDS_PUBLISH_SERVER_NAMES` | `0` | `1`: publish each game server's own name as `community_server.name` (needs vote bot 0.2.5+) |
 
 ## Day to day
 
