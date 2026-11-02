@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- CONTRIBUTING.md: how to run the tests and what must never be committed.
+
 ## 1.2.0 (2026-10-23)
 
 - Optional server names: with `WDS_PUBLISH_SERVER_NAMES=1`, `community_server.name` (top level and per server)
